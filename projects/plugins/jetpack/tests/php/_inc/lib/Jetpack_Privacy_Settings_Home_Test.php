@@ -8,6 +8,7 @@
 use Automattic\Jetpack\My_Jetpack\Initializer;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\TestWith;
 
 /**
  * @covers \Jetpack_Privacy_Settings_Home
@@ -51,6 +52,8 @@ class Jetpack_Privacy_Settings_Home_Test extends WP_UnitTestCase {
 		$wp_actions        = $this->actions; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Restores what set_up() saved.
 		remove_all_filters( 'jetpack_feature_flag_enabled_' . Initializer::SETTINGS_CONSOLIDATION_FLAG );
 		remove_filter( 'jetpack_offline_mode', '__return_false' );
+		Jetpack_Options::delete_option( 'user_tokens' );
+		wp_dequeue_script( 'jetpack-privacy-profile' );
 		parent::tear_down();
 	}
 
@@ -94,12 +97,27 @@ class Jetpack_Privacy_Settings_Home_Test extends WP_UnitTestCase {
 	}
 
 	/**
-	 * The section links to the WordPress.com page that holds the setting.
+	 * Only a user with a linked WordPress.com account gets the toggle and its script; the rest keep the link.
+	 *
+	 * @testWith [ true ]
+	 *           [ false ]
+	 *
+	 * @param bool $is_connected Whether the user linked their WordPress.com account.
 	 */
-	public function test_section_links_to_wordpress_com() {
+	#[TestWith( array( true ) )]
+	#[TestWith( array( false ) )]
+	public function test_toggle_needs_a_connected_user( $is_connected ) {
 		$this->arrange( true, true, 'editor' );
+		if ( $is_connected ) {
+			$user_id = get_current_user_id();
+			Jetpack_Options::update_option( 'user_tokens', array( $user_id => "honey.badger.$user_id" ) );
+		}
 
-		$this->assertStringContainsString( 'href="https://wordpress.com/me/privacy"', $this->render() );
+		$html = $this->render();
+
+		$this->assertSame( $is_connected, str_contains( $html, 'id="jetpack-usage-tracking"' ) );
+		$this->assertSame( $is_connected, wp_script_is( 'jetpack-privacy-profile', 'enqueued' ) );
+		$this->assertStringContainsString( 'href="https://wordpress.com/me/privacy"', $html );
 	}
 
 	/**

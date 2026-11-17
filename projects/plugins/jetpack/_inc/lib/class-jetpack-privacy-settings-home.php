@@ -5,8 +5,11 @@
  * @package automattic/jetpack
  */
 
+use Automattic\Jetpack\Assets;
+use Automattic\Jetpack\Connection\Manager as Connection_Manager;
 use Automattic\Jetpack\My_Jetpack\Initializer;
 use Automattic\Jetpack\Redirect;
+use Automattic\Jetpack\Tracking;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit( 0 );
@@ -47,6 +50,15 @@ class Jetpack_Privacy_Settings_Home {
 	}
 
 	/**
+	 * Whether the section offers the toggle. The setting belongs to the user's WordPress.com account, so others get only the link.
+	 *
+	 * @return bool
+	 */
+	public static function shows_toggle() {
+		return ( new Connection_Manager( 'jetpack' ) )->is_user_connected();
+	}
+
+	/**
 	 * Print the Profile page section.
 	 *
 	 * @return void
@@ -56,14 +68,26 @@ class Jetpack_Privacy_Settings_Home {
 			return;
 		}
 
+		$shows_toggle = self::shows_toggle();
+		if ( $shows_toggle ) {
+			self::enqueue_toggle_script();
+		}
 		?>
 		<div id="jetpack-privacy">
 			<h2><?php esc_html_e( 'Jetpack Privacy Settings', 'jetpack' ); ?></h2>
 			<table class="form-table" role="presentation">
 				<tr>
-					<th scope="row"><?php esc_html_e( 'Usage Information', 'jetpack' ); ?></th>
+					<th scope="row"><?php esc_html_e( 'Usage Information', 'jetpack' ); ?><?php echo $shows_toggle ? '<span class="spinner"></span>' : ''; ?></th>
 					<td>
-						<p><?php esc_html_e( 'Choose whether to share information with our analytics tool about your use of services while logged in to your WordPress.com account.', 'jetpack' ); ?></p>
+						<?php if ( $shows_toggle ) : ?>
+							<label for="jetpack-usage-tracking" hidden>
+								<input type="checkbox" id="jetpack-usage-tracking" />
+								<?php esc_html_e( 'Share information with our analytics tool about your use of services while logged in to your WordPress.com account.', 'jetpack' ); ?>
+							</label>
+							<p role="status"></p>
+						<?php else : ?>
+							<p><?php esc_html_e( 'Choose whether to share information with our analytics tool about your use of services while logged in to your WordPress.com account.', 'jetpack' ); ?></p>
+						<?php endif; ?>
 						<p>
 							<a href="<?php echo esc_url( self::WPCOM_PRIVACY_URL ); ?>" target="_blank" rel="noopener noreferrer">
 								<?php esc_html_e( 'Manage your usage information on WordPress.com', 'jetpack' ); ?>
@@ -103,6 +127,26 @@ class Jetpack_Privacy_Settings_Home {
 			</table>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Load the script that reads and saves the toggle, with the Tracks client it sets the opt-out cookie through.
+	 *
+	 * @return void
+	 */
+	private static function enqueue_toggle_script() {
+		Tracking::register_tracks_functions_scripts();
+		Assets::register_script(
+			'jetpack-privacy-profile',
+			'_inc/build/privacy-profile.min.js',
+			JETPACK__PLUGIN_FILE,
+			array(
+				'dependencies' => array( 'jp-tracks' ),
+				'in_footer'    => true,
+				'textdomain'   => 'jetpack',
+				'enqueue'      => true,
+			)
+		);
 	}
 
 	/**
