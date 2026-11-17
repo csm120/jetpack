@@ -89,7 +89,16 @@ describe( 'Main routes that leave Settings once settings move out', () => {
 		expect( screen.queryByTestId( 'searchable-settings' ) ).not.toBeInTheDocument();
 	} );
 
-	it.each( [ '/performance', '/sharing', '/reader', '/writing', '/discussion' ] )(
+	it( 'sends #/privacy to the WordPress.com privacy settings with the settings flag on', () => {
+		isSettingsConsolidationEnabled.mockReturnValue( true );
+		renderAt( '/privacy', false );
+
+		expect( getAdminUrl ).not.toHaveBeenCalled();
+		expect( console ).toHaveErroredWith( 'Not implemented: navigation to another Document' );
+		expect( screen.queryByTestId( 'searchable-settings' ) ).not.toBeInTheDocument();
+	} );
+
+	it.each( [ '/performance', '/sharing', '/reader', '/writing', '/discussion', '/privacy' ] )(
 		'keeps %s on Settings with the settings flag off',
 		route => {
 			renderAt( route, false );
