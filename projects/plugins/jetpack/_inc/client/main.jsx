@@ -314,9 +314,9 @@ export class Main extends Component {
 				}
 			// Falls through.
 			case '/privacy':
-				// Usage tracking is a WordPress.com account setting, so it is managed there once settings move out.
+				// The Profile page's Privacy section (Jetpack_Privacy_Settings_Home) takes over from the card.
 				if ( '/privacy' === route && isSettingsConsolidationEnabled() ) {
-					window.location.replace( 'https://wordpress.com/me/privacy' );
+					window.location.replace( getAdminUrl( 'profile.php#jetpack-privacy' ) );
 					break;
 				}
 			// Falls through.
