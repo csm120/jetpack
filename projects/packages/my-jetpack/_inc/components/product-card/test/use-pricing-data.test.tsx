@@ -14,7 +14,8 @@ jest.mock( '../../../data/products/use-activate-plugins' );
 jest.mock( '../../../data/products/use-activate-search-free-product' );
 jest.mock( '../../../data/products/use-install-plugins' );
 jest.mock( '../../../data/products/use-product' );
-jest.mock( '../../../hooks/use-analytics', () => () => ( { recordEvent: jest.fn() } ) );
+const mockRecordEvent = jest.fn();
+jest.mock( '../../../hooks/use-analytics', () => () => ( { recordEvent: mockRecordEvent } ) );
 jest.mock( '../../../hooks/use-my-jetpack-connection', () => () => ( { isUserConnected: true } ) );
 jest.mock( '../../../data/utils/get-my-jetpack-window-state', () => ( {
 	getMyJetpackWindowInitialState: () => ( {
@@ -177,9 +178,15 @@ describe( 'usePricingData connect link', () => {
 
 describe( 'RecommendationActions', () => {
 	const toBuy = { isFeature: false, status: PRODUCT_STATUSES.NEEDS_PLAN };
+	const hostSold = { ...toBuy, hostPurchaseUrl: 'https://example.com/plans' };
 
 	it.each( [
 		[ 'a product to buy', toBuy, { 'Learn more': '#/add-search' } ],
+		[
+			'a product its host sells',
+			hostSold,
+			{ Purchase: 'https://example.com/plans', 'Learn more': 'https://example.com/plans' },
+		],
 		[
 			'a feature that is on',
 			{ status: PRODUCT_STATUSES.ACTIVE },
@@ -208,6 +215,19 @@ describe( 'RecommendationActions', () => {
 		await userEvent.click( screen.getByRole( 'button', { name: 'Purchase' } ) );
 
 		expect( mockRunFreeCheckout ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( "records a click on a host-sold product without starting Jetpack's checkout", () => {
+		mockUseProduct.mockReturnValue( productState( featureDetail( hostSold ) ) );
+
+		const { result } = renderHook( () => usePricingData( 'search' ) );
+		act( () => result.current.primaryAction.onClick() );
+
+		expect( mockRecordEvent ).toHaveBeenCalledWith(
+			'jetpack_myjetpack_evaluation_recommendations_checkout_click',
+			{ slug: 'search' }
+		);
+		expect( mockRunFreeCheckout ).not.toHaveBeenCalled();
 	} );
 } );
 
